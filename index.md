@@ -1,4 +1,4 @@
-![DepositGuard Logo"] ( https://www.depositguard.com/img/logo.gif "DepositGuard Logo" )
+![DepositGuard Logo] ( https://www.depositguard.com/img/logo.gif "DepositGuard Logo" )
 
 [TODO]: https://api-test.depositguard.net/images/g.png
 [DOCS]: http://docs.depositguard.com
