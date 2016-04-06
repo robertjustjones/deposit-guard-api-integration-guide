@@ -10,6 +10,7 @@ permalink: /
 [DOCS]: http://docs.depositguard.com
 
 
+
 ## Overview
 
 The DepositGuard API offers simple and secure ways to manage funds for vacation and rental properties.
@@ -80,6 +81,25 @@ Content-Type: application/json
 The `access_token` in the response body can be saved and reused until it expires, usually in 8 hours. The value of the `access_token` should be rendered in the Credit Card Setup form as the `access_key` hidden input field as described in Step 2 below.  
 
 
+<div class="wsd" wsd_style="modern-blue" >
+<pre>
+participant End-User Browser
+participant Partner Server
+participant DepositGuard API
+
+note over Partner Server,DepositGuard API: Server Authentication
+Partner Server->DepositGuard API: POST /oauth/token (Id/Secret)
+DepositGuard API->Partner Server: token (good for 8 hrs)
+note right of Partner Server: Server token used for all server requests\n *except* POST /paymentmethods.
+note over Partner Server,DepositGuard API:  Client Access Key
+Partner Server->DepositGuard API: POST /oauth/key
+DepositGuard API->Partner Server: access key
+note right of Partner Server: Client access keyused only for the browser\nPOST /paymentmethods submit.
+</pre>
+</div>
+
+
+
 
 ## Step 1. Create Rental Agreement
 
@@ -135,6 +155,27 @@ Location:  https://api.depositguard.com/agreements/d646e985-b895-4fb6-b121-b221e
 ```
 
 The `agreement_id` for the newly created agreement will be returned in the `Location` header. As shown in the example, the `agreement_id` is `d646e985-b895-4fb6-b121-b221e5daa9db`. Save the `agreement_id` on the Partner server for use in Step 3.
+
+<div class="wsd" wsd_style="modern-blue" >
+<pre>
+participant End-User Browser
+participant Partner Server
+participant DepositGuard API
+
+note over End-User Browser,Partner Server,DepositGuard API: 1. Create Renter/Landlord Rental Agreement
+End-User Browser->Partner Server: 
+Partner Server->End-User Browser: 
+note over End-User Browser: End User selects property\n (terms, renter, landlord)
+End-User Browser->Partner Server: POST rental form
+
+
+note over Partner Server,DepositGuard API: Create agreement
+Partner Server->DepositGuard API: POST /agreements {data}
+DepositGuard API->Partner Server: agreementId (Location)
+Partner Server->End-User Browser: Success
+</pre>
+</div>
+
 
 After the DepositGuard agreement has been created, the Partner will probably direct the Renter to a Credit Card setup page.
 
@@ -212,7 +253,34 @@ Host: api.depositguard.com
 }
 ```
 
-Once the nonce is confirmed, the DepositGuard payment method setup is complete and ready for use. The Partner next will probably direct the Renter to a Payment page.
+Once the nonce is confirmed, the DepositGuard payment method setup is complete and ready for use.
+
+<div class="wsd" wsd_style="modern-blue" >
+<pre>
+participant End-User Browser
+participant Partner Server
+participant DepositGuard API
+
+note over End-User Browser,Partner Server,DepositGuard API: 2. Renter Credit Card Setup
+note over End-User Browser,Partner Server: A. Client-side web form
+End-User Browser->Partner Server: Request Credit Card Setup Form
+Partner Server->End-User Browser: Credit Card Setup Page
+note over End-User Browser: End User enters\n credit card info
+End-User Browser->DepositGuard API: POST /paymentmethods
+note over DepositGuard API: Credit card info validated\n     and stored securely
+DepositGuard API->End-User Browser: 304 REDIRECT to "redirect_url" with "nonce" param
+End-User Browser->Partner Server: redirect_url with nonce param
+note over Partner Server: Store nonce with user data
+
+note over Partner Server,DepositGuard API: B. Server-side nonce processing
+Partner Server->DepositGuard API: POST /nonce/paymentmethods {nonce}
+DepositGuard API->Partner Server: 200 OK
+Partner Server->End-User Browser: Success
+</pre>
+</div>
+
+
+The Partner next will probably direct the Renter to a Payment page.
 
 
 ## Step 3. Request Deposit/Payment Charge
@@ -245,6 +313,91 @@ Location:  https://api.depositguard.com/agreements/d646e985-b895-4fb6-b121-b221e
 
 Remember that the renter will receive their security deposit back on the card(s) used at the time that agreement is completed.
 
+<div class="wsd" wsd_style="modern-blue" >
+<pre>
+participant End-User Browser
+participant Partner Server
+participant DepositGuard API
+
+note over End-User Browser,Partner Server,DepositGuard API: 3. Deposit Payment Charge Request
+End-User Browser->Partner Server: Request Deposit Payment Form
+Partner Server->End-User Browser: Deposit Payment Form
+note over End-User Browser: End User enters\n  payment info
+End-User Browser->Partner Server: POST payment form
+
+Partner Server->DepositGuard API: POST /agreements/{id}/deposits {nonce}
+DepositGuard API->Partner Server: 201 CREATED
+Partner Server->End-User Browser: Success
+</pre>
+</div>
+
 
 ## Appendix A. 
-![Overview Sequence](https://www.websequencediagrams.com/cgi-bin/cdraw?lz=dGl0bGUgUGFydG5lciBJbnRlZ3JhdGlvbiBGbG93IGZvciB0aGUgRGVwb3NpdEd1YXJkIEFQSQoKcGFydGljaXBhbnQgRW5kLVVzZXIgQnJvd3NlcgAQDQBUCFNlcnYADA8ARBIKbm90ZSBvdmVyAEQRLAA7DiwAgQMQOiBBUEkgQXV0aGVudGljAIFABQBECwAdIQCBGgYAMRAAgTAOLT4AZBJQT1NUIC9vYXV0aC90b2tlbiAoSWQvU2VjcmV0KQoAgikQLT4AggIOOiAALQdnb29kAIJqBTggaHJzKQCCAwZyaWdodCBvZgCCNg8AgSQJAGoGdXNlADUGYWxsIHMAgUEGcmVxdWVzdHNcbiAqZXhjZXB0KgCBIwdwYXltZW50bWV0aG9kcy4AgXcsIENsaWVudCBBY2Nlc3MgS2V5AIFxL2tleQCBbyNhAFkGa2V5AIFnHwCBCAcAJgoAggUFb25seQCFMAliAIUMBlxuAIFpFCBzdWJtaXQuAIQ5PzEuIENyZWF0ZSBSZW50ZXIvTGFuZGxvcmQACwVhbCBBZ3JlZW1lbnQKAIYaEACDfRIAhGERAIZNEDogAIYKGzogRW5kIACHBwVzZWxlY3RzIHByb3BlcnR5XG4gKHRlcm1zLCByAIEiBSwgbACBIQcpAHUjAIViBXIAgUoGZm9ybQCHHw0AhnohAIIZB2EAggAJAIYwKAApCXMge2RhdGF9AIQcJACCZwhJZCAoTG8AiAUGKQCCNiNTdQCFVAUAiEg_Mi4AhAEHIENyZWRpdCBDYXJkIFNldHVwCgCDXiNSAIc0BgArEiBGAIJxBgCDfyIAKRJQYWdlAIpBHACELQsAhT4Fc1xuIGMAgTgGY2FyZCBpbmZvAIUqEwCJdhgAiFYOAItKCwCEBRUAWQ0gdmFsaWRhdGVkXG4gICAgIGFuZCBzdG9yZWQgc2VjdXJlbACIMBQAhhQSMzA0IFJFRElSRUNUIHRvICJyZWRpcmVjdF91cmwiIHdpdGggIm5vbmNlIiBwYXJhbQCGeiMANwwAPAYAPAUAOQcAjFUYOiBTdG9yZQAlBwB0BXVzZXIgZGF0YQCMOCkAgSUFAIkwEHsAgTsFAIVwJDIwMCBPSwCFVy0Ajk89My4AkCwIIFAAjGsGIENoYXJnZQCFWAgAhV8rADkQAIYDBQCKBSIAIhUAhVUuIACOJgcAhWgYAIoQFQAsCACKIAYAiTcyL3tpZH0vZACSbAYAgzYuMSBDUkVBVEVEAIM7LgoKCgo&s=earth)
+
+<div class="wsd" wsd_style="modern-blue" >
+<pre>
+
+title Partner Integration Flow for the DepositGuard API
+
+participant End-User Browser
+participant Partner Server
+participant DepositGuard API
+
+
+note over End-User Browser,Partner Server,DepositGuard API: API Authentication
+note over Partner Server,DepositGuard API: Server Authentication
+Partner Server->DepositGuard API: POST /oauth/token (Id/Secret)
+DepositGuard API->Partner Server: token (good for 8 hrs)
+note right of Partner Server: Server token used for all server requests\n *except* POST /paymentmethods.
+note over Partner Server,DepositGuard API:  Client Access Key
+Partner Server->DepositGuard API: POST /oauth/key
+DepositGuard API->Partner Server: access key
+note right of Partner Server: Client access keyused only for the browser\nPOST /paymentmethods submit.
+
+
+note over End-User Browser,Partner Server,DepositGuard API: 1. Create Renter/Landlord Rental Agreement
+End-User Browser->Partner Server: 
+Partner Server->End-User Browser: 
+note over End-User Browser: End User selects property\n (terms, renter, landlord)
+End-User Browser->Partner Server: POST rental form
+
+
+note over Partner Server,DepositGuard API: Create agreement
+Partner Server->DepositGuard API: POST /agreements {data}
+DepositGuard API->Partner Server: agreementId (Location)
+Partner Server->End-User Browser: Success
+
+
+note over End-User Browser,Partner Server,DepositGuard API: 2. Renter Credit Card Setup
+
+End-User Browser->Partner Server: Request Credit Card Setup Form
+
+
+Partner Server->End-User Browser: Credit Card Setup Page
+
+note over End-User Browser: End User enters\n credit card info
+End-User Browser->DepositGuard API: POST /paymentmethods
+note over DepositGuard API: Credit card info validated\n     and stored securely
+DepositGuard API->End-User Browser: 304 REDIRECT to "redirect_url" with "nonce" param
+End-User Browser->Partner Server: redirect_url with nonce param
+note over Partner Server: Store nonce with user data
+Partner Server->DepositGuard API: POST /nonce/paymentmethods {nonce}
+DepositGuard API->Partner Server: 200 OK
+Partner Server->End-User Browser: Success
+
+
+
+note over End-User Browser,Partner Server,DepositGuard API: 3. Deposit Payment Charge Request
+End-User Browser->Partner Server: Request Deposit Payment Form
+Partner Server->End-User Browser: Deposit Payment Form
+note over End-User Browser: End User enters\n  payment info
+End-User Browser->Partner Server: POST payment form
+
+Partner Server->DepositGuard API: POST /agreements/{id}/deposits {nonce}
+DepositGuard API->Partner Server: 201 CREATED
+Partner Server->End-User Browser: Success
+</pre>
+</div>
+
+<script type="text/javascript" src="http://www.websequencediagrams.com/service.js"></script>
+
